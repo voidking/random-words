@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>随机主题生成器</title>
+  <link rel="stylesheet" href="css/common.css">
+  <style>
+    .generate-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .generate-area__info {
+      flex: 1;
+      font-size: 14px;
+      color: var(--color-text-secondary);
+    }
+
+    .result__theme {
+      font-size: 18px;
+      font-weight: 500;
+      line-height: 1.8;
+      color: var(--color-text);
+      padding: 16px;
+      background: var(--color-tag-bg);
+      border-radius: var(--radius);
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1 class="header__title">随机主题生成器</h1>
+      <p class="header__subtitle">从备选主题库中随机选取一个写作主题</p>
+      <nav class="header__nav">
+        <a href="index.html" class="header__link">随机词</a>
+        <a href="theme.html" class="header__link header__link--active">随机主题</a>
+      </nav>
+    </header>
+
+    <div class="card">
+      <h2 class="card__title">生成设置</h2>
+      <div class="generate-area">
+        <div class="generate-area__info">主题库共 <span id="totalThemes">--</span> 个主题</div>
+        <button id="generateBtn" class="btn btn--primary" disabled>生成主题</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="result__header">
+        <h2 class="card__title" style="margin-bottom: 0;">生成结果</h2>
+        <button id="regenerateBtn" class="btn btn--outline" style="display: none;">重新生成</button>
+      </div>
+      <div id="result" class="result">
+        <div class="result__empty">点击"生成主题"按钮，随机获取一个写作主题</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/themes.js"></script>
+  <script>
+    (function () {
+      // ---- DOM refs ----
+      const generateBtn = document.getElementById('generateBtn');
+      const regenerateBtn = document.getElementById('regenerateBtn');
+      const totalThemesEl = document.getElementById('totalThemes');
+      const resultEl = document.getElementById('result');
+
+      // ---- State ----
+      let themes = [];
+      let total = 0;
+
+      // ---- Load themes ----
+      // 优先使用内嵌的 THEMES 数组（file:// 协议兼容），fetch 作为 HTTP 服务时的备选
+      function loadThemesSync() {
+        themes = typeof THEMES !== 'undefined' ? THEMES : [];
+        total = themes.length;
+
+        if (total === 0) {
+          totalThemesEl.textContent = '0';
+          return;
+        }
+
+        totalThemesEl.textContent = total.toLocaleString();
+        generateBtn.disabled = false;
+      }
+
+      async function loadThemes() {
+        if (typeof THEMES !== 'undefined' && THEMES.length > 0) {
+          loadThemesSync();
+          return;
+        }
+
+        try {
+          const resp = await fetch('data/theme.txt');
+          if (!resp.ok) throw new Error('主题加载失败');
+          const text = await resp.text();
+          const lines = text.trim().split('\n');
+          themes = lines
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+          total = themes.length;
+
+          if (total === 0) {
+            totalThemesEl.textContent = '0';
+            return;
+          }
+
+          totalThemesEl.textContent = total.toLocaleString();
+          generateBtn.disabled = false;
+        } catch (err) {
+          totalThemesEl.textContent = '--';
+          console.error(err);
+        }
+      }
+
+      // ---- Random pick ----
+      function pickRandom() {
+        const idx = Math.floor(Math.random() * themes.length);
+        return themes[idx];
+      }
+
+      // ---- Render ----
+      function renderLoading() {
+        resultEl.innerHTML = `
+          <div class="result__empty" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <span class="spinner" style="border-color: rgba(79, 70, 229, 0.3); border-top-color: var(--color-primary);"></span>
+            正在生成...
+          </div>
+        `;
+      }
+
+      function renderResult(theme) {
+        resultEl.innerHTML = `<div class="result__theme">${theme}</div>`;
+      }
+
+      function renderEmpty() {
+        resultEl.innerHTML = '<div class="result__empty">点击"生成主题"按钮，随机获取一个写作主题</div>';
+        regenerateBtn.style.display = 'none';
+      }
+
+      // ---- Generate ----
+      async function generate() {
+        generateBtn.disabled = true;
+        renderLoading();
+
+        await new Promise(r => setTimeout(r, 300));
+
+        const theme = pickRandom();
+        renderResult(theme);
+
+        generateBtn.disabled = false;
+        regenerateBtn.style.display = 'inline-flex';
+      }
+
+      function regenerate() {
+        generateBtn.disabled = true;
+        renderLoading();
+
+        setTimeout(() => {
+          const theme = pickRandom();
+          renderResult(theme);
+          generateBtn.disabled = false;
+        }, 200);
+      }
+
+      // ---- Events ----
+      generateBtn.addEventListener('click', generate);
+      regenerateBtn.addEventListener('click', regenerate);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !generateBtn.disabled) {
+          generate();
+        }
+      });
+
+      // ---- Init ----
+      loadThemes();
+    })();
+  </script>
+</body>
+</html>
